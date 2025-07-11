@@ -1,9 +1,3 @@
-Got it\! My apologies for the confusion. You need a `README.md` specifically tailored for a **Streamlit application** that will be hosted on GitHub and deployed to a cloud platform. This means emphasizing deployment, environment setup, and Streamlit-specific details.
-
-Here's a `README.md` for your **Streamlit SOX Audit Automation App**:
-
------
-
 # SOX Audit Automation App (Streamlit)
 
 This repository hosts a web-based application built with Streamlit, designed to assist with SOX (Sarbanes-Oxley) audit procedures. It automates the analysis of RCM (Risk and Control Matrix) and Trial Balance data, helping auditors efficiently identify "in-scope" areas, map controls, and flag items for manual review based on user-defined criteria.
