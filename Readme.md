@@ -174,8 +174,6 @@ Streamlit Cloud will automatically detect your `requirements.txt` and install th
 
 Contributions are welcome\! If you find a bug or have a feature request, please open an issue. If you'd like to contribute code, please fork the repository and submit a pull request.
 
-## License
 
-This project is licensed under the MIT License - see the `LICENSE` file for details.
 
 -----
