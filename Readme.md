@@ -262,8 +262,4 @@ Contributions are highly welcome\! If you encounter any bugs, have suggestions f
 2.  **Fork the Repository**: If you wish to contribute code, fork this repository to your own GitHub account.
 3.  **Create a Pull Request**: Make your changes in your forked repository and submit a pull request back to the `main` branch of this repository. Provide a clear description of your changes.
 
-## License
-
-This project is licensed under the MIT License. See the `LICENSE` file in the repository for full details.
-
 -----
