@@ -31,10 +31,6 @@ This application is perfect for audit teams seeking a collaborative, browser-acc
       * **Account Value Bar Chart**: Illustrates the financial value contributed by each individual brand.
       * **Cumulative Percentage Line Chart**: Visually tracks the cumulative contribution of brands towards the total value, with your defined "in-scope" threshold prominently marked.
 
-## Demo
-
-*(If you have a live demo, link it here. Example: [Live Demo on Streamlit Cloud](https://www.google.com/search?q=https://your-streamlit-app-url.streamlit.app/))*
-
 ## Getting Started: From Zero to Deployment
 
 This guide will walk you through setting up your environment, preparing your code, pushing it to GitHub, and finally deploying your Streamlit app to the cloud.
