@@ -1,7 +1,3 @@
-Got it\! To provide a truly comprehensive guide for end-users, especially those who might not be developers, we need to start from absolute basics: installing Python, setting up Git, using GitHub, and finally deploying to Streamlit Cloud.
-
-This revised `README.md` will be significantly more detailed in the "Getting Started" and "Deployment" sections.
-
 -----
 
 # SOX Audit Automation App (Streamlit)
