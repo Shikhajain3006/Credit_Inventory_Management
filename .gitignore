@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+credit_venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/cache/
+.streamlit/logs/
+.streamlit/config.toml
+
+# Environment variables - DO NOT COMMIT
+.env
+.env.local
+
+# Application generated files
+*.xlsx
+*.csv
+*.pdf
+credit_memo_*.xlsx
+credit_memo_*.csv
+credit_memo_*.pdf
+comparison_results/
