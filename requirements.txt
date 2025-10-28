@@ -7,4 +7,3 @@ langchain>=0.1.0
 langchain-openai>=0.1.0
 python-dotenv>=1.0.0
 azure-identity>=1.14.0
-langraph>=0.0.1
