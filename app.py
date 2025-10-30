@@ -20,15 +20,17 @@ import matplotlib.pyplot as plt
 
 # ===================== Setup =====================
 
-# Load environment variables - from parent directory
-# Use absolute path directly to handle Streamlit's working directory quirks
+# Load environment variables
+# Priority: Streamlit Secrets (cloud) > .env file (local) > system env vars
+
 app_dir = Path(__file__).resolve().parent
 env_path = app_dir.parent / ".env"
 
-# First try load_dotenv
-load_dotenv(env_path, override=True)
+# First load from .env file if it exists (local development)
+if env_path.exists():
+    load_dotenv(env_path, override=True)
 
-# For Streamlit, also read directly from file to ensure variables are set
+# For local development, also read .env directly
 if env_path.exists():
     with open(env_path, 'r') as f:
         for line in f:
@@ -37,8 +39,22 @@ if env_path.exists():
                 key, value = line.split('=', 1)
                 key = key.strip()
                 value = value.strip()
-                # Force set in os.environ
-                os.environ[key] = value
+                if not os.getenv(key):  # Don't override if already set
+                    os.environ[key] = value
+
+# For Streamlit Cloud: try to load from st.secrets (cloud deployment)
+try:
+    if not os.getenv("AZURE_OPENAI_API_KEY"):
+        api_key_secret = st.secrets.get("AZURE_OPENAI_API_KEY")
+        if api_key_secret:
+            os.environ["AZURE_OPENAI_API_KEY"] = api_key_secret
+    
+    if not os.getenv("AZURE_OPENAI_ENDPOINT"):
+        endpoint_secret = st.secrets.get("AZURE_OPENAI_ENDPOINT")
+        if endpoint_secret:
+            os.environ["AZURE_OPENAI_ENDPOINT"] = endpoint_secret
+except:
+    pass  # Streamlit secrets not available (OK for local development)
 
 # Debug: Verify environment loaded
 DEBUG_MODE = False  # Set to True to see debug info
@@ -46,8 +62,6 @@ if DEBUG_MODE:
     print(f"ENV PATH: {env_path}")
     print(f"ENV EXISTS: {env_path.exists()}")
     print(f"API KEY LOADED: {bool(os.getenv('AZURE_OPENAI_API_KEY'))}")
-    print(f"API KEY VALUE (first 20 chars): {os.getenv('AZURE_OPENAI_API_KEY', '')[:20] if os.getenv('AZURE_OPENAI_API_KEY') else 'NOT SET'}")
-    print(f"ENDPOINT LOADED: {bool(os.getenv('AZURE_OPENAI_ENDPOINT'))}")
     print(f"ENDPOINT LOADED: {bool(os.getenv('AZURE_OPENAI_ENDPOINT'))}")
 
 # Page config
