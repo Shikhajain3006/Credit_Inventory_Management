@@ -1004,7 +1004,15 @@ Provide key findings and recommendations in 3-4 sentences."""
                     st.error(f"PDF export error: {e}")
                     st.rerun()
         
-        # ===== MAIN SCREEN AI CHAT INTERFACE =====
+        except Exception as e:
+            st.error(f"Error processing file: {e}")
+            st.write(str(e))
+    
+    # ===== MAIN SCREEN AI CHAT INTERFACE =====
+    if "show_chat_history" not in st.session_state:
+        st.session_state.show_chat_history = False
+    
+    if st.session_state.result_df is not None:
         if st.session_state.validator and st.session_state.validator.ai_client:
             st.divider()
             st.subheader("� AI Assistant - Ask About Results")
@@ -1031,40 +1039,45 @@ Provide key findings and recommendations in 3-4 sentences."""
                 else:
                     st.warning("Please validate data first")
             
-            # Display chat history
-            if st.session_state.chat_messages:
-                st.markdown("### Chat History")
+            # Show chat history if toggled on
+            if st.session_state.show_chat_history and st.session_state.chat_messages:
+                st.markdown("---")
+                st.subheader("📜 Chat History")
                 for msg in st.session_state.chat_messages:
                     role = msg["role"]
                     avatar = "👤" if role == "user" else "🤖"
                     with st.chat_message(role, avatar=avatar):
                         st.markdown(msg["content"], unsafe_allow_html=True)
             
-            # Clear chat button
-            if st.button("🗑️ Clear Chat"):
-                st.session_state.chat_messages = []
-                st.rerun()
+            # Control buttons
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🗑️ Clear Chat"):
+                    st.session_state.chat_messages = []
+                    st.session_state.show_chat_history = False
+                    st.rerun()
+            with col2:
+                history_label = "📜 Hide History" if st.session_state.show_chat_history else "📜 Show History"
+                if st.button(history_label):
+                    st.session_state.show_chat_history = not st.session_state.show_chat_history
+                    st.rerun()
         else:
-            if st.session_state.result_df is not None:
-                st.warning("⚠️ AI Assistant not available. Check credentials.")
+            st.warning("⚠️ AI Assistant not available. Check credentials.")
     
-    # ===== SIDEBAR AI CHAT HISTORY DISPLAY =====
+    # ===== SIDEBAR CHAT HISTORY LINK =====
     if st.session_state.result_df is not None:
         with st.sidebar:
-            st.subheader("💬 Chat History")
-            
+            st.divider()
             if st.session_state.validator and st.session_state.validator.ai_client:
-                st.success("🤖 AI Ready")
+                st.subheader("💬 Chat")
+                if st.button("📖 View Chat History", use_container_width=True):
+                    st.session_state.show_chat_history = not st.session_state.show_chat_history
+                    st.rerun()
                 
-                # Display chat history (read-only in sidebar)
                 if st.session_state.chat_messages:
-                    for msg in st.session_state.chat_messages:
-                        role = msg["role"]
-                        avatar = "👤" if role == "user" else "🤖"
-                        with st.chat_message(role, avatar=avatar):
-                            st.markdown(msg["content"], unsafe_allow_html=True)
+                    st.caption(f"💬 {len(st.session_state.chat_messages)} messages")
                 else:
-                    st.info("No messages yet. Start chatting in the main screen!")
+                    st.caption("No chat messages yet")
             else:
                 st.warning("⚠️ AI not available")
 
