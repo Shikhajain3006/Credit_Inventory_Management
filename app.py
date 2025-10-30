@@ -910,14 +910,17 @@ Provide key findings and recommendations in 3-4 sentences."""
                         max_len = max(len(str(ws.cell(row=row, column=col_idx).value or "")) for row in range(1, ws.max_row + 1))
                         ws.column_dimensions[chr(64 + col_idx)].width = min(max_len + 2, 50)
                     
-                    excel_file = f"credit_memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-                    wb.save(excel_file)
+                    # Save to BytesIO instead of disk
+                    from io import BytesIO
+                    excel_buffer = BytesIO()
+                    wb.save(excel_buffer)
+                    excel_buffer.seek(0)
                     
-                    with open(excel_file, "rb") as f:
-                        st.download_button(
-                            label="📊 Download Excel",
-                            data=f.read(),
-                            file_name=excel_file,
+                    excel_file = f"credit_memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                    st.download_button(
+                        label="📊 Download Excel",
+                        data=excel_buffer.getvalue(),
+                        file_name=excel_file,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                 except Exception as e:
@@ -1011,16 +1014,20 @@ Provide key findings and recommendations in 3-4 sentences."""
                             pdf.image(chart_path, x=15, y=pdf.get_y(), w=180)
                             os.unlink(chart_path)  # Clean up temp file
                     
-                    pdf_file = f"credit_memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                    pdf.output(pdf_file)
+                    # Save to BytesIO instead of disk
+                    from io import BytesIO
+                    pdf_buffer = BytesIO()
+                    pdf_output = pdf.output()
+                    pdf_buffer.write(pdf_output)
+                    pdf_buffer.seek(0)
                     
-                    with open(pdf_file, "rb") as f:
-                        st.download_button(
-                            label="📄 Download PDF (with Charts)",
-                            data=f.read(),
-                            file_name=pdf_file,
-                            mime="application/pdf"
-                        )
+                    pdf_file = f"credit_memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                    st.download_button(
+                        label="📄 Download PDF (with Charts)",
+                        data=pdf_buffer.getvalue(),
+                        file_name=pdf_file,
+                        mime="application/pdf"
+                    )
                 except Exception as e:
                     st.error(f"PDF export error: {e}")
                     st.rerun()
