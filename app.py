@@ -1,6 +1,7 @@
 """
 AI-Powered Credit Memo SOX Automation Tool - Streamlit Version
 Same as ai-app but for credit memo validation
+Version: 2.0 - Fixed SOX Status logic and chat interface
 """
 
 import streamlit as st
