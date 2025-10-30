@@ -779,31 +779,6 @@ Provide key findings and recommendations in 3-4 sentences."""
                     st.session_state.chat_messages.append({"role": "assistant", "content": response})
                     st.info(f"✅ Added to AI chat: {query}")
             
-            # Quick download option in preview
-            st.write("")  # Small space
-            download_col = st.columns([1, 4])[0]  # Left align
-            with download_col:
-                try:
-                    # Prepare full results CSV
-                    csv_quick_df = result_df[have_cols].copy()
-                    csv_quick_df = csv_quick_df.reset_index(drop=True)
-                    csv_quick_df.insert(0, "Row #", range(1, len(csv_quick_df) + 1))
-                    csv_quick_df["Cm Date"] = csv_quick_df["Cm Date"].astype(str).str.replace(" 00:00:00", "")
-                    csv_quick_df["Date Of Approval"] = csv_quick_df["Date Of Approval"].astype(str).str.replace(" 00:00:00", "")
-                    csv_quick_df["Amount"] = csv_quick_df["Amount"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "")
-                    
-                    csv_data = csv_quick_df.to_csv(index=False)
-                    csv_file = f"credit_memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-                    st.download_button(
-                        label="⬇️ Quick CSV Download",
-                        data=csv_data,
-                        file_name=csv_file,
-                        mime="text/csv",
-                        use_container_width=False
-                    )
-                except Exception as e:
-                    st.error(f"CSV download error: {e}")
-            
             # Export
             st.divider()
             st.subheader("📥 Export Results")
@@ -1077,45 +1052,71 @@ Provide key findings and recommendations in 3-4 sentences."""
                 else:
                     st.warning("Please validate data first")
             
-            # Show chat history if toggled on
-            if st.session_state.show_chat_history and st.session_state.chat_messages:
+            # Initialize selected message index
+            if "selected_chat_index" not in st.session_state:
+                st.session_state.selected_chat_index = None
+            
+            # Display selected message pair (question + answer)
+            if st.session_state.selected_chat_index is not None and st.session_state.selected_chat_index < len(st.session_state.chat_messages):
                 st.markdown("---")
-                st.subheader("📜 Chat History")
-                for msg in st.session_state.chat_messages:
-                    role = msg["role"]
-                    avatar = "👤" if role == "user" else "🤖"
-                    with st.chat_message(role, avatar=avatar):
-                        st.markdown(msg["content"], unsafe_allow_html=True)
+                st.subheader("� Selected Message")
+                
+                # Show the user question
+                if st.session_state.selected_chat_index > 0:
+                    user_msg = st.session_state.chat_messages[st.session_state.selected_chat_index - 1]
+                    if user_msg["role"] == "user":
+                        with st.chat_message("user", avatar="👤"):
+                            st.markdown(user_msg["content"])
+                
+                # Show the assistant response
+                if st.session_state.selected_chat_index < len(st.session_state.chat_messages):
+                    assistant_msg = st.session_state.chat_messages[st.session_state.selected_chat_index]
+                    if assistant_msg["role"] == "assistant":
+                        with st.chat_message("assistant", avatar="🤖"):
+                            st.markdown(assistant_msg["content"], unsafe_allow_html=True)
             
             # Control buttons
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("🗑️ Clear Chat"):
                     st.session_state.chat_messages = []
-                    st.session_state.show_chat_history = False
+                    st.session_state.selected_chat_index = None
                     st.rerun()
             with col2:
-                history_label = "📜 Hide History" if st.session_state.show_chat_history else "📜 Show History"
-                if st.button(history_label):
-                    st.session_state.show_chat_history = not st.session_state.show_chat_history
+                if st.button("✕ Close Selection"):
+                    st.session_state.selected_chat_index = None
                     st.rerun()
         else:
             st.warning("⚠️ AI Assistant not available. Check credentials.")
     
-    # ===== SIDEBAR CHAT HISTORY LINK =====
+    # ===== SIDEBAR CHAT HISTORY =====
     if st.session_state.result_df is not None:
         with st.sidebar:
             st.divider()
             if st.session_state.validator and st.session_state.validator.ai_client:
-                st.subheader("💬 Chat")
-                if st.button("📖 View Chat History", use_container_width=True):
-                    st.session_state.show_chat_history = not st.session_state.show_chat_history
-                    st.rerun()
+                st.subheader("💬 Chat History")
                 
                 if st.session_state.chat_messages:
-                    st.caption(f"💬 {len(st.session_state.chat_messages)} messages")
+                    # Extract only user questions with their index
+                    user_messages = []
+                    for i, msg in enumerate(st.session_state.chat_messages):
+                        if msg["role"] == "user":
+                            user_messages.append((i, msg["content"]))
+                    
+                    # Display each question as a clickable button
+                    for idx, (msg_idx, question) in enumerate(user_messages):
+                        # Truncate long questions
+                        display_text = question[:50] + "..." if len(question) > 50 else question
+                        
+                        # Show message number and preview
+                        if st.button(f"Q{idx+1}: {display_text}", use_container_width=True, key=f"chat_msg_{msg_idx}"):
+                            # Set to show the assistant response (msg_idx + 1)
+                            if "selected_chat_index" not in st.session_state:
+                                st.session_state.selected_chat_index = None
+                            st.session_state.selected_chat_index = msg_idx + 1
+                            st.rerun()
                 else:
-                    st.caption("No chat messages yet")
+                    st.caption("No messages yet")
             else:
                 st.warning("⚠️ AI not available")
 
