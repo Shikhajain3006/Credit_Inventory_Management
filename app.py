@@ -331,7 +331,9 @@ class ValidateCredit:
         
         df.at[i, "Final Approver Level"] = apr_lvl if isinstance(apr_lvl, int) else ""
         
-        # Check compliance
+        # Check compliance - Track approval level status but defer final SOX Status
+        approval_compliant = False
+        
         if pd.isna(amt) or need_lvl is None:
             df.at[i, "SOX Status"] = "SOX Violation"
             df.at[i, "Risk Level"] = "High"
@@ -345,8 +347,11 @@ class ValidateCredit:
             df.at[i, "Risk Level"] = "High"
             df.at[i, "Missing Approvals"] = f"Designation '{row['Approver Designation']}' not found in matrix"
         elif apr_lvl >= need_lvl:
-            df.at[i, "SOX Status"] = "SOX Compliant"
-            df.at[i, "Risk Level"] = "Low"
+            # Approval level is sufficient, but don't set SOX Compliant yet
+            # Timeline must also be checked before final determination
+            approval_compliant = True
+            df.at[i, "SOX Status"] = ""  # Placeholder - will be set after timeline check
+            df.at[i, "Risk Level"] = ""
             df.at[i, "Missing Approvals"] = "None"
         else:
             missing = list(range(apr_lvl + 1, need_lvl + 1))
@@ -364,6 +369,11 @@ class ValidateCredit:
             df.at[i, "Approval Timeline (Business Days)"] = pd.NA
             df.at[i, "Timeline Status"] = "Dates Missing"
             df.at[i, "Approval Sequence"] = "Dates Missing"
+            # If approval was compliant but dates are missing, mark as violation
+            if approval_compliant:
+                df.at[i, "SOX Status"] = "SOX Violation"
+                df.at[i, "Risk Level"] = "High"
+                df.at[i, "Missing Approvals"] = "Timeline: Dates missing"
         else:
             # Check if approval came before CM (correct order)
             if ap > cm:
@@ -372,11 +382,10 @@ class ValidateCredit:
                 df.at[i, "Approval Timeline (Business Days)"] = bdays
                 df.at[i, "Timeline Status"] = "Approval After CM"
                 df.at[i, "Approval Sequence"] = "Approval After CM (Violation)"
-                # Update SOX Status to indicate the sequence violation
-                if df.at[i, "SOX Status"] == "":
-                    df.at[i, "SOX Status"] = "SOX Violation"
-                    df.at[i, "Risk Level"] = "High"
-                    df.at[i, "Missing Approvals"] = "Approval Date: Approved after CM creation"
+                # Sequence violation takes priority
+                df.at[i, "SOX Status"] = "SOX Violation"
+                df.at[i, "Risk Level"] = "High"
+                df.at[i, "Missing Approvals"] = "Approval Date: Approved after CM creation"
             else:
                 # Approval came before CM (correct order) - check SLA
                 bdays = pd.bdate_range(ap, cm).size - 1
@@ -385,15 +394,18 @@ class ValidateCredit:
                 if bdays <= self.sla_days:
                     df.at[i, "Timeline Status"] = f"Within {self.sla_days} days"
                     df.at[i, "Approval Sequence"] = "Order OK"
+                    # Only mark as compliant if approval was also compliant AND timeline is OK
+                    if approval_compliant:
+                        df.at[i, "SOX Status"] = "SOX Compliant"
+                        df.at[i, "Risk Level"] = "Low"
                 else:
                     # SLA violated
                     df.at[i, "Timeline Status"] = f"Over {self.sla_days} days"
                     df.at[i, "Approval Sequence"] = "SLA Violated"
-                    # Update SOX Status to indicate timeline violation
-                    if df.at[i, "SOX Status"] == "":
-                        df.at[i, "SOX Status"] = "SOX Violation"
-                        df.at[i, "Risk Level"] = "Medium"
-                        df.at[i, "Missing Approvals"] = f"Timeline: CM created {bdays - self.sla_days} days after SLA threshold"
+                    # SLA violation overrides approval compliance
+                    df.at[i, "SOX Status"] = "SOX Violation"
+                    df.at[i, "Risk Level"] = "Medium"
+                    df.at[i, "Missing Approvals"] = f"Timeline: CM created {bdays - self.sla_days} days after SLA threshold"
         
         # Generate Violation Reason summary
         violation_reasons = []
@@ -991,56 +1003,70 @@ Provide key findings and recommendations in 3-4 sentences."""
                     st.error(f"PDF export error: {e}")
                     st.rerun()
         
-        except Exception as e:
-            st.error(f"Error processing file: {e}")
-            st.write(str(e))
+        # ===== MAIN SCREEN AI CHAT INTERFACE =====
+        if st.session_state.validator and st.session_state.validator.ai_client:
+            st.divider()
+            st.subheader("� AI Assistant - Ask About Results")
+            
+            # Chat input
+            if user_query := st.chat_input("Ask about validation results..."):
+                # Add user message
+                st.session_state.chat_messages.append({"role": "user", "content": user_query})
+                
+                with st.chat_message("user", avatar="👤"):
+                    st.markdown(user_query)
+                
+                # Generate response
+                if st.session_state.result_df is not None:
+                    with st.chat_message("assistant", avatar="🤖"):
+                        response_placeholder = st.empty()
+                        response_placeholder.markdown("🤔 Thinking...")
+                        
+                        context = build_context_prompt(st.session_state.result_df)
+                        response = get_ai_response(st.session_state.validator.ai_client, context, user_query)
+                        
+                        response_placeholder.markdown(response)
+                        st.session_state.chat_messages.append({"role": "assistant", "content": response})
+                else:
+                    st.warning("Please validate data first")
+            
+            # Display chat history
+            if st.session_state.chat_messages:
+                st.markdown("### Chat History")
+                for msg in st.session_state.chat_messages:
+                    role = msg["role"]
+                    avatar = "👤" if role == "user" else "🤖"
+                    with st.chat_message(role, avatar=avatar):
+                        st.markdown(msg["content"], unsafe_allow_html=True)
+            
+            # Clear chat button
+            if st.button("🗑️ Clear Chat"):
+                st.session_state.chat_messages = []
+                st.rerun()
+        else:
+            if st.session_state.result_df is not None:
+                st.warning("⚠️ AI Assistant not available. Check credentials.")
     
-    # ===== SIDEBAR AI CHAT =====
-    # Only show AI Assistant after file has been processed and results exist
+    # ===== SIDEBAR AI CHAT HISTORY DISPLAY =====
     if st.session_state.result_df is not None:
         with st.sidebar:
-            st.subheader("💬 AI Assistant")
+            st.subheader("💬 Chat History")
             
             if st.session_state.validator and st.session_state.validator.ai_client:
-                st.success("🤖 Ready to help!")
+                st.success("🤖 AI Ready")
                 
-                # Display chat history
-                chat_container = st.container()
-                with chat_container:
+                # Display chat history (read-only in sidebar)
+                if st.session_state.chat_messages:
                     for msg in st.session_state.chat_messages:
                         role = msg["role"]
                         avatar = "👤" if role == "user" else "🤖"
                         with st.chat_message(role, avatar=avatar):
                             st.markdown(msg["content"], unsafe_allow_html=True)
-                
-                # Chat input
-                if user_query := st.chat_input("Ask about results..."):
-                    # Add user message
-                    st.session_state.chat_messages.append({"role": "user", "content": user_query})
-                    
-                    with st.chat_message("user", avatar="👤"):
-                        st.markdown(user_query)
-                    
-                    # Generate response
-                    if st.session_state.result_df is not None:
-                        with st.chat_message("assistant", avatar="🤖"):
-                            response_placeholder = st.empty()
-                            response_placeholder.markdown("🤔 Thinking...")
-                            
-                            context = build_context_prompt(st.session_state.result_df)
-                            response = get_ai_response(st.session_state.validator.ai_client, context, user_query)
-                            
-                            response_placeholder.markdown(response)
-                            st.session_state.chat_messages.append({"role": "assistant", "content": response})
-                    else:
-                        st.warning("Please validate data first")
-                
-                # Clear chat button
-                if st.button("🗑️ Clear Chat"):
-                    st.session_state.chat_messages = []
-                    st.rerun()
+                else:
+                    st.info("No messages yet. Start chatting in the main screen!")
             else:
-                st.warning("⚠️ AI not available. Check credentials.")
+                st.warning("⚠️ AI not available")
+
 
 if __name__ == "__main__":
     main()
