@@ -779,6 +779,31 @@ Provide key findings and recommendations in 3-4 sentences."""
                     st.session_state.chat_messages.append({"role": "assistant", "content": response})
                     st.info(f"✅ Added to AI chat: {query}")
             
+            # Quick download option in preview
+            st.write("")  # Small space
+            download_col = st.columns([1, 4])[0]  # Left align
+            with download_col:
+                try:
+                    # Prepare full results CSV
+                    csv_quick_df = result_df[have_cols].copy()
+                    csv_quick_df = csv_quick_df.reset_index(drop=True)
+                    csv_quick_df.insert(0, "Row #", range(1, len(csv_quick_df) + 1))
+                    csv_quick_df["Cm Date"] = csv_quick_df["Cm Date"].astype(str).str.replace(" 00:00:00", "")
+                    csv_quick_df["Date Of Approval"] = csv_quick_df["Date Of Approval"].astype(str).str.replace(" 00:00:00", "")
+                    csv_quick_df["Amount"] = csv_quick_df["Amount"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "")
+                    
+                    csv_data = csv_quick_df.to_csv(index=False)
+                    csv_file = f"credit_memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                    st.download_button(
+                        label="⬇️ Quick CSV Download",
+                        data=csv_data,
+                        file_name=csv_file,
+                        mime="text/csv",
+                        use_container_width=False
+                    )
+                except Exception as e:
+                    st.error(f"CSV download error: {e}")
+            
             # Export
             st.divider()
             st.subheader("📥 Export Results")
@@ -786,9 +811,17 @@ Provide key findings and recommendations in 3-4 sentences."""
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                # CSV export - same columns as preview
+                # CSV export - FULL RESULTS (not filtered preview)
                 try:
-                    csv_data = display_df.to_csv(index=False)
+                    # Prepare export dataframe with all data
+                    csv_export_df = result_df[have_cols].copy()
+                    csv_export_df = csv_export_df.reset_index(drop=True)
+                    csv_export_df.insert(0, "Row #", range(1, len(csv_export_df) + 1))
+                    csv_export_df["Cm Date"] = csv_export_df["Cm Date"].astype(str).str.replace(" 00:00:00", "")
+                    csv_export_df["Date Of Approval"] = csv_export_df["Date Of Approval"].astype(str).str.replace(" 00:00:00", "")
+                    csv_export_df["Amount"] = csv_export_df["Amount"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "")
+                    
+                    csv_data = csv_export_df.to_csv(index=False)
                     csv_file = f"credit_memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
                     st.download_button(
                         label="📋 Download CSV",
@@ -800,7 +833,7 @@ Provide key findings and recommendations in 3-4 sentences."""
                     st.error(f"CSV export error: {e}")
             
             with col2:
-                # Excel export
+                # Excel export - FULL RESULTS (not filtered preview)
                 try:
                     from openpyxl import Workbook
                     from openpyxl.styles import PatternFill, Alignment, Font, Border, Side
@@ -810,19 +843,24 @@ Provide key findings and recommendations in 3-4 sentences."""
                     ws = wb.active
                     ws.title = "Credit Memo Check Results"
                     
-                    # Export the same columns as display, with row numbers
-                    export_df = display_df.copy()
-                    export_df = export_df.where(pd.notna(export_df), None)
+                    # Export the same columns as display, with row numbers - using FULL DATA
+                    excel_export_df = result_df[have_cols].copy()
+                    excel_export_df = excel_export_df.reset_index(drop=True)
+                    excel_export_df.insert(0, "Row #", range(1, len(excel_export_df) + 1))
+                    excel_export_df["Cm Date"] = excel_export_df["Cm Date"].astype(str).str.replace(" 00:00:00", "")
+                    excel_export_df["Date Of Approval"] = excel_export_df["Date Of Approval"].astype(str).str.replace(" 00:00:00", "")
+                    excel_export_df["Amount"] = excel_export_df["Amount"].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "")
+                    excel_export_df = excel_export_df.where(pd.notna(excel_export_df), None)
                     
                     # Write data
-                    for r in dataframe_to_rows(export_df, index=False, header=True):
+                    for r in dataframe_to_rows(excel_export_df, index=False, header=True):
                         ws.append(r)
                     
                     ws.freeze_panes = "A2"
                     ws.auto_filter.ref = ws.dimensions
                     
                     # Color coding - match preview using original result_df for accurate violation counts
-                    cols = list(export_df.columns)
+                    cols = list(excel_export_df.columns)
                     sox_idx = cols.index("SOX Status") + 1 if "SOX Status" in cols else None
                     violation_reason_idx = cols.index("Violation Reason") + 1 if "Violation Reason" in cols else None
                     violation_count_idx = cols.index("Violation Count") + 1 if "Violation Count" in cols else None
