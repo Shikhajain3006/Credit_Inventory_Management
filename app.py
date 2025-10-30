@@ -743,7 +743,9 @@ Provide key findings and recommendations in 3-4 sentences."""
                         response = get_ai_response(st.session_state.validator.ai_client, context, query)
                         st.session_state.chat_messages.append({"role": "user", "content": query})
                         st.session_state.chat_messages.append({"role": "assistant", "content": response})
-                        st.info(f"✅ Added to AI chat: {query}")
+                        # Auto-select the response to display in center
+                        st.session_state.selected_chat_index = len(st.session_state.chat_messages) - 1
+                        st.rerun()
                     else:
                         st.success("✅ No violations found!")
             
@@ -756,7 +758,9 @@ Provide key findings and recommendations in 3-4 sentences."""
                         response = get_ai_response(st.session_state.validator.ai_client, context, query)
                         st.session_state.chat_messages.append({"role": "user", "content": query})
                         st.session_state.chat_messages.append({"role": "assistant", "content": response})
-                        st.info(f"✅ Added to AI chat: {query}")
+                        # Auto-select the response to display in center
+                        st.session_state.selected_chat_index = len(st.session_state.chat_messages) - 1
+                        st.rerun()
                     else:
                         st.success("✅ No high-risk items!")
             
@@ -768,7 +772,9 @@ Provide key findings and recommendations in 3-4 sentences."""
                     response = get_ai_response(st.session_state.validator.ai_client, context, query)
                     st.session_state.chat_messages.append({"role": "user", "content": query})
                     st.session_state.chat_messages.append({"role": "assistant", "content": response})
-                    st.info(f"✅ Added to AI chat: {query}")
+                    # Auto-select the response to display in center
+                    st.session_state.selected_chat_index = len(st.session_state.chat_messages) - 1
+                    st.rerun()
             
             with col_btn4:
                 if st.button("📊 Generate Summary", use_container_width=True):
@@ -777,7 +783,9 @@ Provide key findings and recommendations in 3-4 sentences."""
                     response = get_ai_response(st.session_state.validator.ai_client, context, query)
                     st.session_state.chat_messages.append({"role": "user", "content": query})
                     st.session_state.chat_messages.append({"role": "assistant", "content": response})
-                    st.info(f"✅ Added to AI chat: {query}")
+                    # Auto-select the response to display in center
+                    st.session_state.selected_chat_index = len(st.session_state.chat_messages) - 1
+                    st.rerun()
             
             # Export
             st.divider()
