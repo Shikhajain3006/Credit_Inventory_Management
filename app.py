@@ -1,7 +1,7 @@
 """
-AI-Powered Credit Memo SOX Automation Tool - Streamlit Version
+AI-Powered Credit Memo Automation Tool - Streamlit Version
 Same as ai-app but for credit memo validation
-Version: 2.0 - Fixed SOX Status logic and chat interface
+Version: 2.0 - Fixed Status logic and chat interface
 """
 
 import streamlit as st
@@ -66,7 +66,7 @@ if DEBUG_MODE:
 
 # Page config
 st.set_page_config(
-    page_title="Credit Memo SOX Automation",
+    page_title="Credit Memo Automation",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -132,13 +132,13 @@ Please provide a helpful, concise response."""
 
 def build_context_prompt(result_df):
     """Build context prompt from validation results"""
-    compliant = (result_df["SOX Status"] == "SOX Compliant").sum()
-    violations = (result_df["SOX Status"] == "SOX Violation").sum()
+    compliant = (result_df["Status"] == "Compliant").sum()
+    violations = (result_df["Status"] == "Violation").sum()
     high_risk = (result_df["Risk Level"] == "High").sum()
     med_risk = (result_df["Risk Level"] == "Medium").sum()
     over_sla = (result_df["Timeline Status"].astype(str).str.startswith("Over")).sum()
     
-    return f"""You are an expert SOX compliance analyst reviewing credit memo validation results.
+    return f"""You are an expert compliance analyst reviewing credit memo validation results.
 
 Current validation results:
 - Total Memos: {len(result_df)}
@@ -149,7 +149,7 @@ Current validation results:
 - Over SLA: {over_sla}
 
 Summary Data:
-{result_df[['Memo', 'Customer Name', 'Amount', 'SOX Status', 'Risk Level', 'Reason Class', 'Timeline Status']].head(20).to_string()}"""
+{result_df[['Memo', 'Customer Name', 'Amount', 'Status', 'Risk Level', 'Reason Class', 'Timeline Status']].head(20).to_string()}"""
 
 # ===================== Helper Functions =====================
 
@@ -271,7 +271,7 @@ class ValidateCredit:
         df["Required Approval Level"] = ""
         df["Final Approver"] = df["Approver Designation"]
         df["Final Approver Level"] = ""  # Will be filled with int or empty string, then converted to string
-        df["SOX Status"] = ""
+        df["Status"] = ""
         df["Risk Level"] = ""
         df["Missing Approvals"] = ""
         df["Violation Reason"] = "None"  # Track violation reasons
@@ -346,32 +346,32 @@ class ValidateCredit:
         
         df.at[i, "Final Approver Level"] = apr_lvl if isinstance(apr_lvl, int) else ""
         
-        # Check compliance - Track approval level status but defer final SOX Status
+        # Check compliance - Track approval level status but defer final Status
         approval_compliant = False
         
         if pd.isna(amt) or need_lvl is None:
-            df.at[i, "SOX Status"] = "SOX Violation"
+            df.at[i, "Status"] = "Violation"
             df.at[i, "Risk Level"] = "High"
             df.at[i, "Missing Approvals"] = "Missing amount or matrix not available"
         elif apr_lvl is None:
-            df.at[i, "SOX Status"] = "SOX Violation"
+            df.at[i, "Status"] = "Violation"
             df.at[i, "Risk Level"] = "High"
             df.at[i, "Missing Approvals"] = "Approver designation missing"
         elif apr_lvl == "NOT_FOUND":
-            df.at[i, "SOX Status"] = "SOX Violation"
+            df.at[i, "Status"] = "Violation"
             df.at[i, "Risk Level"] = "High"
             df.at[i, "Missing Approvals"] = f"Designation '{row['Approver Designation']}' not found in matrix"
         elif apr_lvl >= need_lvl:
-            # Approval level is sufficient, but don't set SOX Compliant yet
+            # Approval level is sufficient, but don't set Compliant yet
             # Timeline must also be checked before final determination
             approval_compliant = True
-            df.at[i, "SOX Status"] = ""  # Placeholder - will be set after timeline check
+            df.at[i, "Status"] = ""  # Placeholder - will be set after timeline check
             df.at[i, "Risk Level"] = ""
             df.at[i, "Missing Approvals"] = "None"
         else:
             missing = list(range(apr_lvl + 1, need_lvl + 1))
             risk = "High" if len(missing) >= self.missing_levels_for_high else "Medium"
-            df.at[i, "SOX Status"] = "SOX Violation"
+            df.at[i, "Status"] = "Violation"
             df.at[i, "Risk Level"] = risk
             df.at[i, "Missing Approvals"] = f"Level {'–'.join(map(str, missing))} Missing"
         
@@ -386,7 +386,7 @@ class ValidateCredit:
             df.at[i, "Approval Sequence"] = "Dates Missing"
             # If approval was compliant but dates are missing, mark as violation
             if approval_compliant:
-                df.at[i, "SOX Status"] = "SOX Violation"
+                df.at[i, "Status"] = "Violation"
                 df.at[i, "Risk Level"] = "High"
                 df.at[i, "Missing Approvals"] = "Timeline: Dates missing"
         else:
@@ -398,7 +398,7 @@ class ValidateCredit:
                 df.at[i, "Timeline Status"] = "Approval After CM"
                 df.at[i, "Approval Sequence"] = "Approval After CM (Violation)"
                 # Sequence violation takes priority
-                df.at[i, "SOX Status"] = "SOX Violation"
+                df.at[i, "Status"] = "Violation"
                 df.at[i, "Risk Level"] = "High"
                 df.at[i, "Missing Approvals"] = "Approval Date: Approved after CM creation"
             else:
@@ -411,14 +411,14 @@ class ValidateCredit:
                     df.at[i, "Approval Sequence"] = "Order OK"
                     # Only mark as compliant if approval was also compliant AND timeline is OK
                     if approval_compliant:
-                        df.at[i, "SOX Status"] = "SOX Compliant"
+                        df.at[i, "Status"] = "Compliant"
                         df.at[i, "Risk Level"] = "Low"
                 else:
                     # SLA violated
                     df.at[i, "Timeline Status"] = f"Over {self.sla_days} days"
                     df.at[i, "Approval Sequence"] = "SLA Violated"
                     # SLA violation overrides approval compliance
-                    df.at[i, "SOX Status"] = "SOX Violation"
+                    df.at[i, "Status"] = "Violation"
                     df.at[i, "Risk Level"] = "Medium"
                     df.at[i, "Missing Approvals"] = f"Timeline: CM created {bdays - self.sla_days} days after SLA threshold"
         
@@ -427,7 +427,7 @@ class ValidateCredit:
         
         # Check for approval level violations
         missing_approvals = df.at[i, "Missing Approvals"]
-        if df.at[i, "SOX Status"] == "SOX Violation" and missing_approvals and missing_approvals != "None":
+        if df.at[i, "Status"] == "Violation" and missing_approvals and missing_approvals != "None":
             if "Level" in str(missing_approvals):
                 violation_reasons.append(f"Missing Approval: {missing_approvals}")
             elif "Timeline" in str(missing_approvals):
@@ -468,10 +468,10 @@ def main():
     if "ai_summary_generated" not in st.session_state:
         st.session_state.ai_summary_generated = False
     
-    st.markdown('<p class="header">📊 Credit Memo SOX Automation</p>', unsafe_allow_html=True)
+    st.markdown('<p class="header">📊 Credit Memo Automation</p>', unsafe_allow_html=True)
     
     # Force cache clear on page load
-    st.set_page_config(page_title="Credit Memo SOX Automation", layout="wide")
+    st.set_page_config(page_title="Credit Memo Automation", layout="wide")
     
     # Sidebar
     with st.sidebar:
@@ -575,11 +575,11 @@ def main():
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                compliant = (result_df["SOX Status"] == "SOX Compliant").sum()
+                compliant = (result_df["Status"] == "Compliant").sum()
                 st.metric("Compliant", compliant, f"{int(compliant/len(result_df)*100)}%")
             
             with col2:
-                violations = (result_df["SOX Status"] == "SOX Violation").sum()
+                violations = (result_df["Status"] == "Violation").sum()
                 st.metric("Violations", violations, f"{int(violations/len(result_df)*100)}%")
             
             with col3:
@@ -606,7 +606,7 @@ def main():
             else:
                 st.markdown("""
                 <div style="background-color: #E5F5E5; border: 2px solid #51CF66; border-radius: 8px; padding: 16px; margin: 10px 0;">
-                    <strong>✅ All Clear:</strong> All credit memos are compliant with SOX requirements!
+                    <strong>✅ All Clear:</strong> All credit memos are compliant with requirements!
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -614,11 +614,11 @@ def main():
             col1, col2 = st.columns(2)
             
             with col1:
-                sox_counts = result_df["SOX Status"].value_counts()
+                cm_counts = result_df["Status"].value_counts()
                 fig, ax = plt.subplots(figsize=(6, 4))
-                colors = ["#2ca02c" if x == "SOX Compliant" else "#d62728" for x in sox_counts.index]
-                ax.pie(sox_counts.values, labels=sox_counts.index, autopct="%1.1f%%", colors=colors)
-                ax.set_title("SOX Status Distribution")
+                colors = ["#2ca02c" if x == "Compliant" else "#d62728" for x in cm_counts.index]
+                ax.pie(cm_counts.values, labels=cm_counts.index, autopct="%1.1f%%", colors=colors)
+                ax.set_title("Status Distribution")
                 st.pyplot(fig)
             
             with col2:
@@ -662,7 +662,7 @@ Provide key findings and recommendations in 3-4 sentences."""
                 memo_filter = st.text_input("Filter by Memo ID", "")
             
             with col2:
-                status_filter = st.multiselect("Filter by Status", ["SOX Compliant", "SOX Violation"], default=["SOX Compliant", "SOX Violation"])
+                status_filter = st.multiselect("Filter by Status", ["Compliant", "Violation"], default=["Compliant", "Violation"])
             
             with col3:
                 risk_filter = st.multiselect("Filter by Risk", ["Low", "Medium", "High"], default=["Low", "Medium", "High"])
@@ -672,7 +672,7 @@ Provide key findings and recommendations in 3-4 sentences."""
             if memo_filter:
                 filtered_df = filtered_df[filtered_df["Memo"].astype(str).str.contains(memo_filter, case=False)]
             if status_filter:
-                filtered_df = filtered_df[filtered_df["SOX Status"].isin(status_filter)]
+                filtered_df = filtered_df[filtered_df["Status"].isin(status_filter)]
             if risk_filter:
                 filtered_df = filtered_df[filtered_df["Risk Level"].isin(risk_filter)]
             
@@ -681,7 +681,7 @@ Provide key findings and recommendations in 3-4 sentences."""
                 "Memo", "Customer Name", "Date Of Approval", "Cm Date", "Reason", "Reason Class", "Amount",
                 "Approver", "Approver Designation",
                 "Required Approval Level", "Final Approver Level", "Final Approver",
-                "SOX Status", "Risk Level", "Violation Reason", "Missing Approvals",
+                "Status", "Risk Level", "Violation Reason", "Missing Approvals",
                 "Approval Timeline (Business Days)", "Timeline Status", "Approval Sequence",
                 "Designation Level Check", "Duplicate Memo"
             ]
@@ -701,9 +701,9 @@ Provide key findings and recommendations in 3-4 sentences."""
             # Define styling function
             def style_cell(val):
                 """Style cells based on values"""
-                if val == "SOX Compliant":
+                if val == "Compliant":
                     return 'background-color: #C6EFCE; color: black; font-weight: bold'
-                elif val == "SOX Violation":
+                elif val == "Violation":
                     return 'background-color: #FFC7CE; color: black; font-weight: bold'
                 elif val == "High":
                     return 'background-color: #FFC7CE; color: black; font-weight: bold'
@@ -729,7 +729,7 @@ Provide key findings and recommendations in 3-4 sentences."""
                     return 'background-color: #E7E6E6; color: black'
             
             # Display styled table
-            styled_df = display_df.style.map(style_cell, subset=["SOX Status", "Risk Level"])
+            styled_df = display_df.style.map(style_cell, subset=["Status", "Risk Level"])
             
             # Only apply Violation Reason styling if the column exists
             if "Violation Reason" in display_df.columns:
@@ -750,9 +750,9 @@ Provide key findings and recommendations in 3-4 sentences."""
             
             with col_btn1:
                 if st.button("📋 Explain Violations", use_container_width=True):
-                    violations_df = result_df[result_df["SOX Status"] == "SOX Violation"]
+                    violations_df = result_df[result_df["Status"] == "Violation"]
                     if not violations_df.empty:
-                        query = "Summarize the key violations found and explain their impact on SOX compliance."
+                        query = "Summarize the key violations found and explain their impact on compliance."
                         context = build_context_prompt(result_df)
                         response = get_ai_response(st.session_state.validator.ai_client, context, query)
                         st.session_state.chat_messages.append({"role": "user", "content": query})
@@ -858,7 +858,7 @@ Provide key findings and recommendations in 3-4 sentences."""
                     
                     # Color coding - match preview using original result_df for accurate violation counts
                     cols = list(excel_export_df.columns)
-                    sox_idx = cols.index("SOX Status") + 1 if "SOX Status" in cols else None
+                    cm_idx = cols.index("Status") + 1 if "Status" in cols else None
                     violation_reason_idx = cols.index("Violation Reason") + 1 if "Violation Reason" in cols else None
                     violation_count_idx = cols.index("Violation Count") + 1 if "Violation Count" in cols else None
                     risk_idx = cols.index("Risk Level") + 1 if "Risk Level" in cols else None
@@ -958,13 +958,13 @@ Provide key findings and recommendations in 3-4 sentences."""
                     
                     chart_images = []
                     
-                    # SOX Status pie chart
-                    def create_sox_chart():
+                    # Status pie chart
+                    def create_s_chart():
                         fig, ax = plt.subplots(figsize=(8, 6))
-                        result_df["SOX Status"].value_counts().plot(kind='pie', autopct='%1.1f%%', ax=ax)
+                        result_df["Status"].value_counts().plot(kind='pie', autopct='%1.1f%%', ax=ax)
                         ax.set_ylabel('')
                         return fig, ax
-                    chart_images.append(("SOX Status Distribution", create_chart("SOX Status", create_sox_chart)))
+                    chart_images.append(("Status Distribution", create_chart("Status", create_s_chart)))
                     
                     # Risk Level pie chart
                     def create_risk_chart():
@@ -985,12 +985,12 @@ Provide key findings and recommendations in 3-4 sentences."""
                     # Violations by Approver
                     def create_approver_chart():
                         fig, ax = plt.subplots(figsize=(10, 6))
-                        violations = result_df[result_df["SOX Status"] == "SOX Violation"]["Approver Designation"].value_counts().head(10)
+                        violations = result_df[result_df["Status"] == "Violation"]["Approver Designation"].value_counts().head(10)
                         violations.plot(kind='barh', ax=ax)
                         ax.set_xlabel('Count')
                         ax.set_title('Top Approvers with Violations')
                         return fig, ax
-                    if (result_df["SOX Status"] == "SOX Violation").any():
+                    if (result_df["Status"] == "Violation").any():
                         chart_images.append(("Violations by Approver", create_chart("Top Violations", create_approver_chart)))
                     
                     # Create PDF
@@ -1000,12 +1000,12 @@ Provide key findings and recommendations in 3-4 sentences."""
                     # Cover page
                     pdf.add_page()
                     pdf.set_font("helvetica", "B", 16)
-                    pdf.cell(0, 15, "Credit Memo SOX Audit Report", new_x="LMARGIN", new_y="NEXT", align="C")
+                    pdf.cell(0, 15, "Credit Memo Audit Report", new_x="LMARGIN", new_y="NEXT", align="C")
                     pdf.ln(5)
                     pdf.set_font("helvetica", size=11)
                     
-                    compliant = (result_df["SOX Status"] == "SOX Compliant").sum()
-                    violations = (result_df["SOX Status"] == "SOX Violation").sum()
+                    compliant = (result_df["Status"] == "Compliant").sum()
+                    violations = (result_df["Status"] == "Violation").sum()
                     high_risk = (result_df["Risk Level"] == "High").sum()
                     med_risk = (result_df["Risk Level"] == "Medium").sum()
                     
@@ -1057,7 +1057,7 @@ Provide key findings and recommendations in 3-4 sentences."""
     if st.session_state.result_df is not None:
         if st.session_state.validator and st.session_state.validator.ai_client:
             st.divider()
-            st.subheader("� AI Assistant - Ask About Results")
+            st.subheader("  AI Assistant - Ask About Results")
             
             # Chat input
             if user_query := st.chat_input("Ask about validation results..."):
@@ -1088,7 +1088,7 @@ Provide key findings and recommendations in 3-4 sentences."""
             # Display selected message pair (question + answer)
             if st.session_state.selected_chat_index is not None and st.session_state.selected_chat_index < len(st.session_state.chat_messages):
                 st.markdown("---")
-                st.subheader("� Selected Message")
+                st.subheader("  Selected Message")
                 
                 # Show the user question
                 if st.session_state.selected_chat_index > 0:
